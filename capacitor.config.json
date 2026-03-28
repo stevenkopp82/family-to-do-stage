@@ -1,0 +1,11 @@
+{
+  "appId": "com.familytodo.app",
+  "appName": "Family To-Do",
+  "webDir": "www",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
+}
