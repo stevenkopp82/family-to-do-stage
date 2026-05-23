@@ -57,6 +57,7 @@ let migrationChecked = false;    // run user-member link migration at most once
 let pendingJoinFamily = null;    // { id, name } stored during join flow
 let pendingMemberId = null;      // member doc ID to link on invite join (new flow)
 let pendingMemberCode = null;    // invite code used during join, cleared after redemption
+let processingRecurring = false; // prevent re-entrant recurring-task processing
 
 // ============================================================
 // AUTH
@@ -111,6 +112,7 @@ onAuthStateChanged(auth, async (user) => {
     pendingMemberId = null;
     pendingMemberCode = null;
     familyName = null;
+    processingRecurring = false;
     if (tasksUnsubscribe) tasksUnsubscribe();
     showAuth();
   }
@@ -450,7 +452,15 @@ function subscribeToData() {
     (snap) => {
       console.log("[Sub] Tasks snapshot received, count:", snap.docs.length);
       tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      processDueRecurringTasks().then(() => renderTasks());
+      // If recurring processing is already in flight, just update the array.
+      // The in-flight .then(renderTasks) will render once when it finishes,
+      // using the latest tasks data (closed over by reference).
+      if (processingRecurring) return;
+      processingRecurring = true;
+      processDueRecurringTasks().then(() => {
+        processingRecurring = false;
+        renderTasks();
+      });
     },
     (err) => console.error("[Sub] Tasks permission error:", err.code, err.message)
   );

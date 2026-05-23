@@ -39,6 +39,16 @@ function computeNextDue(dueDate, recurrence) {
       return null;
     }
   }
+  else if (recurrence.startsWith("specificdays:")) {
+    const dayNums = recurrence.split(":")[1].split(",").map(Number).sort((a, b) => a - b);
+    const currentDayOfWeek = d.getDay();
+    const nextDay = dayNums.find(day => day > currentDayOfWeek);
+    if (nextDay !== undefined) {
+      d.setDate(d.getDate() + (nextDay - currentDayOfWeek));
+    } else {
+      d.setDate(d.getDate() + (7 - currentDayOfWeek + dayNums[0]));
+    }
+  }
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
@@ -190,6 +200,38 @@ describe("computeNextDue", () => {
   test("days:X uses today as base when dueDate is null", () => {
     const expected = dateOffset(5);
     expect(computeNextDue(null, "days:5")).toBe(expected);
+  });
+
+  // specificdays: recurrence tests
+  // 2025-01-06 = Monday (day 1), 2025-01-07 = Tue, 2025-01-09 = Thu, 2025-01-11 = Sat, 2025-01-12 = Sun
+  test("specificdays: advances to next selected day this week", () => {
+    // Mon → next selected day Tue (days 2,4)
+    expect(computeNextDue("2025-01-06", "specificdays:2,4")).toBe("2025-01-07");
+  });
+
+  test("specificdays: advances to later selected day this week", () => {
+    // Tue → next selected day Thu (days 2,4)
+    expect(computeNextDue("2025-01-07", "specificdays:2,4")).toBe("2025-01-09");
+  });
+
+  test("specificdays: wraps to next week when no later day this week", () => {
+    // Thu (day 4) → no day > 4 in [2,4], wrap to Tue next week
+    expect(computeNextDue("2025-01-09", "specificdays:2,4")).toBe("2025-01-14");
+  });
+
+  test("specificdays: wraps correctly from Saturday", () => {
+    // Sat (day 6) → no day > 6 in [1,3,5], wrap to Mon next week
+    expect(computeNextDue("2025-01-11", "specificdays:1,3,5")).toBe("2025-01-13");
+  });
+
+  test("specificdays: advances from Sunday to next day this week", () => {
+    // Sun (day 0) → next selected day Wed (days 0,3,5)
+    expect(computeNextDue("2025-01-12", "specificdays:0,3,5")).toBe("2025-01-15");
+  });
+
+  test("specificdays: single day wraps weekly", () => {
+    // Fri (day 5) → only day is Fri, wraps to next Fri
+    expect(computeNextDue("2025-01-10", "specificdays:5")).toBe("2025-01-17");
   });
 });
 
