@@ -28,12 +28,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAY1wt3GqTak2oKkXuoMo0ruItv9fA09ac",
-  authDomain: "family-to-do-stage.firebaseapp.com",
-  projectId: "family-to-do-stage",
-  storageBucket: "family-to-do-stage.firebasestorage.app",
-  messagingSenderId: "918652640486",
-  appId: "1:918652640486:web:46db8be779929e8aeeaf27"
+  apiKey: "AIzaSyAA29vEFu7gVTZSAbDwWcfwNw4hSixIPmE",
+  authDomain: "family-to-do-list-33ffa.firebaseapp.com",
+  projectId: "family-to-do-list-33ffa",
+  storageBucket: "family-to-do-list-33ffa.firebasestorage.app",
+  messagingSenderId: "1072664901116",
+  appId: "1:1072664901116:web:55369f9f89835cfb8c2e79"
 };
 
 // ============================================================
@@ -50,6 +50,7 @@ let members = [];
 let tasks = [];
 let activeFilter = "all";
 let editingTaskId = null;
+let sectionCollapsed = { completedToday: false };
 let tasksUnsubscribe = null;
 let currentUserMemberId = null;  // member doc ID linked to this login
 let familyName = null;           // cached family display name
@@ -57,7 +58,6 @@ let migrationChecked = false;    // run user-member link migration at most once
 let pendingJoinFamily = null;    // { id, name } stored during join flow
 let pendingMemberId = null;      // member doc ID to link on invite join (new flow)
 let pendingMemberCode = null;    // invite code used during join, cleared after redemption
-let processingRecurring = false; // prevent re-entrant recurring-task processing
 
 // ============================================================
 // AUTH
@@ -112,32 +112,24 @@ onAuthStateChanged(auth, async (user) => {
     pendingMemberId = null;
     pendingMemberCode = null;
     familyName = null;
-    processingRecurring = false;
     if (tasksUnsubscribe) tasksUnsubscribe();
     showAuth();
   }
 });
 
-function hideLoadingScreen() {
-  document.getElementById("loading-screen").classList.add("hidden");
-}
-
 function showApp() {
-  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.remove("hidden");
 }
 
 function showAuth() {
-  hideLoadingScreen();
   document.getElementById("app-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.add("hidden");
   document.getElementById("auth-screen").classList.remove("hidden");
 }
 
 async function showFamilySetup() {
-  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.add("hidden");
 
@@ -191,7 +183,6 @@ async function showFamilySetup() {
 }
 
 async function showJoinFamily(code) {
-  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.remove("hidden");
@@ -452,15 +443,7 @@ function subscribeToData() {
     (snap) => {
       console.log("[Sub] Tasks snapshot received, count:", snap.docs.length);
       tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      // If recurring processing is already in flight, just update the array.
-      // The in-flight .then(renderTasks) will render once when it finishes,
-      // using the latest tasks data (closed over by reference).
-      if (processingRecurring) return;
-      processingRecurring = true;
-      processDueRecurringTasks().then(() => {
-        processingRecurring = false;
-        renderTasks();
-      });
+      processDueRecurringTasks().then(() => renderTasks());
     },
     (err) => console.error("[Sub] Tasks permission error:", err.code, err.message)
   );
@@ -560,6 +543,16 @@ function computeNextDue(dueDate, recurrence) {
       d.setDate(d.getDate() + days);
     } else {
       return null; // Invalid format
+    }
+  }
+  else if (recurrence.startsWith("specificdays:")) {
+    const dayNums = recurrence.split(":")[1].split(",").map(Number).sort((a, b) => a - b);
+    const currentDayOfWeek = d.getDay();
+    const nextDay = dayNums.find(day => day > currentDayOfWeek);
+    if (nextDay !== undefined) {
+      d.setDate(d.getDate() + (nextDay - currentDayOfWeek));
+    } else {
+      d.setDate(d.getDate() + (7 - currentDayOfWeek + dayNums[0]));
     }
   }
   // Use local date string to avoid UTC timezone shifting
@@ -684,8 +677,13 @@ function renderTasks() {
   }
 
   if (completedToday.length) {
-    html += `<div class="section-label">✅ Completed Today</div>`;
+    const isCollapsed = sectionCollapsed.completedToday;
+    html += `<div class="section-label section-label-collapsible" onclick="toggleSection(this)" data-section-key="completedToday">
+      <span>✅ Completed Today</span><span class="collapse-arrow${isCollapsed ? " collapsed" : ""}">▶</span>
+    </div>
+    <div class="collapsible-section"${isCollapsed ? ' style="display:none"' : ""}>`;
     completedToday.forEach((t) => (html += taskCard(t, false, true)));
+    html += `</div>`;
   }
 
   container.innerHTML = html;
@@ -769,6 +767,10 @@ function taskCard(task, isOverdue, isCompleted, isUpcomingRecurring = false) {
 }
 
 function recurringLabel(r) {
+  if (r.startsWith("specificdays:")) {
+    const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    return r.split(":")[1].split(",").map(n => dayNames[Number(n)]).join("/");
+  }
   if (r.startsWith("days:")) {
     const days = parseInt(r.split(":")[1], 10);
     return `Every ${days} day${days === 1 ? "" : "s"}`;
@@ -803,6 +805,8 @@ window.toggleSection = function (header) {
   const isCollapsed = section.style.display === "none";
   section.style.display = isCollapsed ? "" : "none";
   arrow.classList.toggle("collapsed", !isCollapsed);
+  const key = header.dataset.sectionKey;
+  if (key) sectionCollapsed[key] = !isCollapsed;
 };
 
 window.setFilter = function (memberId) {
@@ -830,6 +834,10 @@ window.openTaskModal = function () {
   document.getElementById("task-due").value = todayStr();
   document.getElementById("task-recurrence").value = "none";
   document.getElementById("task-recurrence-days").value = "";
+  document.querySelectorAll("#task-recurrence-weekdays .day-pill").forEach(el => {
+    el.classList.remove("selected");
+    el.querySelector("input[type=checkbox]").checked = false;
+  });
   clearTaskError();
   toggleRecurrenceDaysInput();
   // Pre-select the currently filtered member (if any)
@@ -846,11 +854,25 @@ window.openEditTask = function (taskId) {
   document.getElementById("task-title").value = task.title;
   document.getElementById("task-due").value = task.dueDate || "";
 
-  // Handle custom days recurrence
+  // Reset day pills
+  document.querySelectorAll("#task-recurrence-weekdays .day-pill").forEach(el => {
+    el.classList.remove("selected");
+    el.querySelector("input[type=checkbox]").checked = false;
+  });
+
   if (task.recurrence && task.recurrence.startsWith("days:")) {
     const days = parseInt(task.recurrence.split(":")[1], 10);
     document.getElementById("task-recurrence").value = "days";
     document.getElementById("task-recurrence-days").value = days;
+  } else if (task.recurrence && task.recurrence.startsWith("specificdays:")) {
+    const days = task.recurrence.split(":")[1].split(",").map(Number);
+    document.getElementById("task-recurrence").value = "specificdays";
+    document.getElementById("task-recurrence-days").value = "";
+    document.querySelectorAll("#task-recurrence-weekdays .day-pill").forEach(el => {
+      const selected = days.includes(parseInt(el.dataset.day, 10));
+      el.classList.toggle("selected", selected);
+      el.querySelector("input[type=checkbox]").checked = selected;
+    });
   } else {
     document.getElementById("task-recurrence").value = task.recurrence || "none";
     document.getElementById("task-recurrence-days").value = "";
@@ -870,12 +892,23 @@ window.closeTaskModal = function (e) {
 window.toggleRecurrenceDaysInput = function () {
   const recurrence = document.getElementById("task-recurrence").value;
   const daysInput = document.getElementById("task-recurrence-days");
+  const weekdayPicker = document.getElementById("task-recurrence-weekdays");
   if (recurrence === "days") {
     daysInput.style.display = "block";
     daysInput.focus();
+    weekdayPicker.style.display = "none";
+  } else if (recurrence === "specificdays") {
+    daysInput.style.display = "none";
+    weekdayPicker.style.display = "block";
   } else {
     daysInput.style.display = "none";
+    weekdayPicker.style.display = "none";
   }
+};
+
+window.toggleDayPill = function (el) {
+  el.classList.toggle("selected");
+  el.querySelector("input[type=checkbox]").checked = el.classList.contains("selected");
 };
 
 window.saveTask = async function () {
@@ -885,7 +918,6 @@ window.saveTask = async function () {
   const dueDate = document.getElementById("task-due").value || null;
   let recurrence = document.getElementById("task-recurrence").value;
 
-  // Handle custom days recurrence
   if (recurrence === "days") {
     const days = document.getElementById("task-recurrence-days").value.trim();
     if (!days) return showTaskError("Please enter the number of days for custom recurrence.");
@@ -894,6 +926,12 @@ window.saveTask = async function () {
       return showTaskError("Number of days must be between 1 and 30.");
     }
     recurrence = `days:${daysNum}`;
+  } else if (recurrence === "specificdays") {
+    const selectedDays = Array.from(
+      document.querySelectorAll("#task-recurrence-weekdays .day-pill.selected input[type=checkbox]")
+    ).map(cb => cb.value).sort((a, b) => a - b);
+    if (!selectedDays.length) return showTaskError("Please select at least one day of the week.");
+    recurrence = `specificdays:${selectedDays.join(",")}`;
   }
 
   if (recurrence !== "none" && !dueDate) {

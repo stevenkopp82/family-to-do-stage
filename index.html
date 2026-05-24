@@ -11,13 +11,8 @@
 </head>
 <body>
 
-  <!-- LOADING SCREEN -->
-  <div id="loading-screen" class="screen loading-screen">
-    <div class="loading-spinner"></div>
-  </div>
-
   <!-- AUTH SCREEN -->
-  <div id="auth-screen" class="screen hidden">
+  <div id="auth-screen" class="screen">
     <div class="auth-card">
       <div class="auth-logo">
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -157,12 +152,24 @@
           <option value="none">Does not repeat</option>
           <option value="daily">Daily</option>
           <option value="weekdays">Weekdays (Mon–Fri)</option>
+          <option value="specificdays">Specific days of week</option>
           <option value="days">Every X days</option>
           <option value="weekly">Weekly</option>
           <option value="biweekly">Every 2 weeks</option>
           <option value="monthly">Monthly</option>
         </select>
         <input type="number" id="task-recurrence-days" class="input" placeholder="Number of days (1-30)" min="1" max="30" style="display:none;margin-top:8px" />
+        <div id="task-recurrence-weekdays" style="display:none;margin-top:8px">
+          <div class="day-pill-group">
+            <div class="day-pill" data-day="0" onclick="toggleDayPill(this)"><input type="checkbox" value="0" tabindex="-1"><span>Su</span></div>
+            <div class="day-pill" data-day="1" onclick="toggleDayPill(this)"><input type="checkbox" value="1" tabindex="-1"><span>Mo</span></div>
+            <div class="day-pill" data-day="2" onclick="toggleDayPill(this)"><input type="checkbox" value="2" tabindex="-1"><span>Tu</span></div>
+            <div class="day-pill" data-day="3" onclick="toggleDayPill(this)"><input type="checkbox" value="3" tabindex="-1"><span>We</span></div>
+            <div class="day-pill" data-day="4" onclick="toggleDayPill(this)"><input type="checkbox" value="4" tabindex="-1"><span>Th</span></div>
+            <div class="day-pill" data-day="5" onclick="toggleDayPill(this)"><input type="checkbox" value="5" tabindex="-1"><span>Fr</span></div>
+            <div class="day-pill" data-day="6" onclick="toggleDayPill(this)"><input type="checkbox" value="6" tabindex="-1"><span>Sa</span></div>
+          </div>
+        </div>
 
         <label class="field-label">Assign to members</label>
         <div id="member-checkboxes" class="member-checkbox-list"></div>
@@ -225,6 +232,6 @@
   <!-- FIREBASE SDKs -->
   <script type="module" src="app.js"></script>
   <!-- VERSION BADGE -->
-  <div id="version-badge" style="background:#e67e22">⚠ STAGE</div>
+  <div id="version-badge">v20260322.1</div>
 </body>
 </html>
