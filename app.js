@@ -117,19 +117,26 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+function hideLoadingScreen() {
+  document.getElementById("loading-screen").classList.add("hidden");
+}
+
 function showApp() {
+  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.remove("hidden");
 }
 
 function showAuth() {
+  hideLoadingScreen();
   document.getElementById("app-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.add("hidden");
   document.getElementById("auth-screen").classList.remove("hidden");
 }
 
 async function showFamilySetup() {
+  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.add("hidden");
 
@@ -183,6 +190,7 @@ async function showFamilySetup() {
 }
 
 async function showJoinFamily(code) {
+  hideLoadingScreen();
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("app-screen").classList.add("hidden");
   document.getElementById("family-setup-screen").classList.remove("hidden");

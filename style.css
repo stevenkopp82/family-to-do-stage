@@ -50,6 +50,25 @@ html, body {
 .screen { min-height: 100vh; }
 .hidden { display: none !important; }
 
+/* ===== LOADING SCREEN ===== */
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== AUTH ===== */
 #auth-screen {
   display: flex;
